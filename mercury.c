@@ -432,7 +432,7 @@ Reader_get_antennas(Reader *self)
 static PyObject *
 Reader_get_power_range(Reader *self)
 {
-    int lim_power;
+    int16_t lim_power;
     TMR_Status ret;
     PyObject *powers;
     powers = PyTuple_New(2);
