@@ -82,6 +82,15 @@ print(reader.get_antennas())
 [1, 2]
 ```
 
+#### reader.get_connected_port_list()
+Lists connected antennas.
+
+For example:
+```python
+print(reader.get_connected_port_list())
+[2, 4]
+```
+
 #### reader.get_read_powers()
 Lists configured read powers for each antenna. [(antenna, power)]
 
