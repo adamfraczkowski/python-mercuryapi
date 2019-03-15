@@ -935,6 +935,32 @@ Reader_get_model(Reader* self)
 }
 
 static PyObject *
+Reader_get_connected_port_list(Reader *self)
+{
+    int i;
+    TMR_Status ret;
+    PyObject *antennas;
+    TMR_uint8List port_list;
+    uint8_t value_list[MAX_ANTENNA_COUNT];
+
+    port_list.list = value_list;
+    port_list.max = numberof(value_list);
+
+    if ((ret = TMR_paramGet(&self->reader, TMR_PARAM_ANTENNA_CONNECTEDPORTLIST, &port_list)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, "Error getting antennas");
+        return NULL;
+    }
+
+    antennas = PyList_New(0);
+    for (i = 0; i < port_list.len && i < port_list.max; i++)
+    {
+        PyList_Append(antennas, PyLong_FromLong((long) port_list.list[i]));
+    }
+    return antennas;
+}
+
+static PyObject *
 Reader_get_gen2_blf(Reader* self)
 {
     TMR_Status ret;
@@ -1229,6 +1255,9 @@ static PyMethodDef Reader_methods[] = {
     },
     {"set_gen2_q", (PyCFunction)Reader_set_gen2_q, METH_VARARGS,
      "Sets the Gen2 Q"
+    },
+    {"get_connected_port_list", (PyCFunction)Reader_get_connected_port_list, METH_NOARGS,
+     "Returns connected port list"
     },
     {NULL}  /* Sentinel */
 };
