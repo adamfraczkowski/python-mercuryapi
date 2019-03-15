@@ -467,25 +467,13 @@ Reader_get_read_powers(Reader *self)
     ant_pow_list.list = pow_value_list;
     ant_pow_list.max = numberof(pow_value_list);
 
-    TMR_uint8List port_list;
-    uint8_t port_value_list[MAX_ANTENNA_COUNT];
-
-    port_list.list = port_value_list;
-    port_list.max = numberof(port_value_list);
-
-    if ((ret = TMR_paramGet(&self->reader, TMR_PARAM_ANTENNA_PORTLIST, &port_list)) != TMR_SUCCESS)
-    {
-        PyErr_SetString(PyExc_TypeError, "Error getting antennas");
-        return NULL;
-    }
-
     if ((ret = TMR_paramGet(&self->reader, TMR_PARAM_RADIO_PORTREADPOWERLIST, &ant_pow_list)) != TMR_SUCCESS)
     {
         PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
         return NULL;
     }
 
-    for (row = 0; row < port_list.len; row++)
+    for (row = 0; row < ant_pow_list.len; row++)
     {
         antenna_power = PyTuple_New(2);
         PyTuple_SetItem(antenna_power, 0, PyLong_FromLong((long) ant_pow_list.list[row].port));
