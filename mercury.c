@@ -25,6 +25,7 @@
 #include <Python.h>
 #include <structmember.h>
 
+#define TMR_ENABLE_PARAM_STRINGS
 #define MAX_ANTENNA_COUNT 16
 #define MAX_GPIO_COUNT 4
 #define MAX_DATA_AREA 258
@@ -246,6 +247,18 @@ static TMR_TagProtocol str2protocol(const char *name)
     }
 
     return TMR_TAG_PROTOCOL_NONE;
+}
+
+static const char* protocol2str(TMR_TagProtocol protocol)
+{
+    Protocols *prot;
+    for(prot = Reader_protocols; prot->name != NULL; prot++)
+    {
+        if(prot->protocol == protocol)
+            return prot->name;
+    }
+
+    return NULL;
 }
 
 static
@@ -916,6 +929,149 @@ Reader_stop_reading(Reader* self)
 }
 
 static PyObject *
+Reader_get_param_list(Reader* self)
+{
+    int i;
+    TMR_Param list[100];
+    uint32_t len = 100;
+    TMR_Status ret;
+
+    PyObject *params;
+
+    if ((ret = TMR_paramList(&self->reader, list, &len)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
+
+    params = PyList_New(0);    
+    for (i = 0; i < len; i++){
+        PyList_Append(params, PyUnicode_FromString(TMR_paramName(list[i])));
+    }
+    return params;
+}
+
+
+static PyObject *
+Reader_get_param_list_values(Reader* self)
+{
+    int i;
+    TMR_Param list[100];
+    uint32_t len = 100;
+    TMR_Status ret;
+
+    PyObject *params;
+    PyObject *tuple;
+
+    TMR_String string_ret;
+    char str[150];
+    string_ret.value = str;
+    string_ret.max = sizeof(str);
+
+    int row;
+    uint32_t uint32_ret;
+    TMR_Region region_ret;
+    TMR_TagProtocol protocol_ret;
+    TMR_PortValueList portvalue_ret;
+    PyObject *tuple_ret;
+    PyObject *list_ret;
+
+    if ((ret = TMR_paramList(&self->reader, list, &len)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
+
+    params = PyList_New(0);
+    for (i = 0; i < len; i++){
+        switch(list[i]) {
+            //uint32_t
+            case TMR_PARAM_BAUDRATE:
+            case TMR_PARAM_COMMANDTIMEOUT:
+            case TMR_PARAM_TRANSPORTTIMEOUT:
+            case TMR_PARAM_READ_ASYNCOFFTIME:
+            case TMR_PARAM_READ_ASYNCONTIME:
+            case TMR_PARAM_REGION_HOPTIME:
+            case TMR_PARAM_GEN2_T4:
+            case TMR_PARAM_REGION_QUANTIZATION_STEP:
+            case TMR_PARAM_REGION_MINIMUM_FREQUENCY:
+            case TMR_PARAM_REGULATORY_ONTIME:
+            case TMR_PARAM_REGULATORY_OFFTIME:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &uint32_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong((long) uint32_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_Region
+            case TMR_PARAM_REGION_ID:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &region_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                            return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyUnicode_FromString(region2str(region_ret)));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_TagProtocol
+            case TMR_PARAM_TAGOP_PROTOCOL:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &protocol_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyUnicode_FromString(protocol2str(protocol_ret)));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_PortValueList
+            case TMR_PARAM_ANTENNA_SETTLINGTIMELIST:
+            case TMR_PARAM_ANTENNA_RETURNLOSS:
+            case TMR_PARAM_RADIO_PORTREADPOWERLIST:
+            case TMR_PARAM_RADIO_PORTWRITEPOWERLIST:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &portvalue_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    list_ret = PyList_New(0);
+                    for (row = 0; row < portvalue_ret.len; row++)
+                    {
+                        tuple_ret = PyTuple_New(2);
+                        PyTuple_SetItem(tuple_ret, 0, PyLong_FromLong((long) portvalue_ret.list[row].port));
+                        PyTuple_SetItem(tuple_ret, 1, PyLong_FromLong((long) portvalue_ret.list[row].value));
+                        PyList_Append(list_ret, tuple_ret);
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, list_ret);
+                    PyList_Append(params, tuple);
+                } break;
+        }
+    }
+    return params;
+}
+
+static PyObject *
 Reader_get_model(Reader* self)
 {
     TMR_String model;
@@ -1258,6 +1414,12 @@ static PyMethodDef Reader_methods[] = {
     },
     {"get_connected_port_list", (PyCFunction)Reader_get_connected_port_list, METH_NOARGS,
      "Returns connected port list"
+    },
+    {"get_param_list_values", (PyCFunction)Reader_get_param_list_values, METH_NOARGS,
+     "Returns params list with values"
+    },
+    {"get_param_list", (PyCFunction)Reader_get_param_list, METH_NOARGS,
+     "Returns params list"
     },
     {NULL}  /* Sentinel */
 };
