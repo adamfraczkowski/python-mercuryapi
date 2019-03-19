@@ -1353,12 +1353,12 @@ Reader_write_reserved_bank(Reader *self, PyObject *args, PyObject *kwds)
     
     /* build block of data to be writen */
     char sub_buffer[5];
-    memcpy(sub_buffer,&bank_data[0],4)
+    memcpy(sub_buffer,&bank_data[0],4);
     sub_buffer[4] = '\0';
-    TMR_hexToBytes(sub_buffer,data_to_write[0],4)
-    memcpy(sub_buffer,&bank_data[4],4)
+    TMR_hexToBytes(sub_buffer,data_to_write[0],4,NULL);
+    memcpy(sub_buffer,&bank_data[4],4);
     sub_buffer[4] = '\0';
-    TMR_hexToBytes(sub_buffer,data_to_write[1],4)
+    TMR_hexToBytes(sub_buffer,data_to_write[1],4,NULL);
     bank_data_list.list = data_to_write;
     bank_data_list.max = sizeof(data_to_write)/sizeof(data_to_write[0]);
     // Build filter target tag to be replaced.
