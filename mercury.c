@@ -1658,6 +1658,59 @@ Reader_set_gen2_q(Reader* self, PyObject *args)
     return q_value;
 }
 
+static PyObject *
+Reader_write_reserved_bank(Reader *self, PyObject *args, PyObject *kwds)
+{
+    char* bank_data;
+    char* epc_target;
+    
+    uint16_t data_to_write[2];
+
+    TMR_TagOp tagop;
+    TMR_uint16List bank_data_list;
+
+    TMR_Status ret;
+    TMR_TagData data;
+    TMR_TagData target;
+    TMR_TagFilter filter;
+    // Read call arguments.
+    static char *kwlist[] = {"epc_target", "bank_data", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ss", kwlist, &epc_target, &bank_data))
+        return NULL;
+    /* build target tag to search */
+    target.epcByteCount = strlen(epc_target) * sizeof(char) / 2;
+    TMR_hexToBytes(epc_target, target.epc, target.epcByteCount, NULL);
+    
+    /* build data tag to be writen */
+    //data.epcByteCount = strlen(epc_data) * sizeof(char) / 2;
+    //TMR_hexToBytes(epc_data, data.epc, data.epcByteCount, NULL);
+    
+    /* build block of data to be writen */
+    char sub_buffer[5];
+    memcpy(sub_buffer,&bank_data[0],4);
+    sub_buffer[4] = '\0';
+    TMR_hexToBytes(sub_buffer,data_to_write[0],4,NULL);
+    memcpy(sub_buffer,&bank_data[4],4);
+    sub_buffer[4] = '\0';
+    TMR_hexToBytes(sub_buffer,data_to_write[1],4,NULL);
+    bank_data_list.list = data_to_write;
+    bank_data_list.max = sizeof(data_to_write)/sizeof(data_to_write[0]);
+    // Build filter target tag to be replaced.
+    TMR_TF_init_tag(&filter, &target);
+    //ret = TMR_TagOp_init_GEN2_BlockWrite(&tagop,TMR_GEN2_BANK_RESERVED,0,&bank_data_list);
+    if((ret = TMR_TagOp_init_GEN2_BlockWrite(&tagop,TMR_GEN2_BANK_RESERVED,0,&bank_data_list)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
+    ret = TMR_executeTagOp(&self->reader, &tagop, &filter, NULL);
+    // In case of not target tag found.
+    if (ret == TMR_ERROR_NO_TAGS_FOUND)
+        Py_RETURN_FALSE;
+    Py_RETURN_TRUE;
+}
+
+
 static PyMethodDef Reader_methods[] = {
     {"get_temperature", (PyCFunction)Reader_get_temperature, METH_NOARGS,
      "Returns the chip temperature"
@@ -1754,6 +1807,9 @@ static PyMethodDef Reader_methods[] = {
     },
     {"get_param_list", (PyCFunction)Reader_get_param_list, METH_NOARGS,
      "Returns params list"
+    },
+    {"write_reserved_bank", (PyCFunction)Reader_write_reserved_bank, METH_VARARGS | METH_KEYWORDS,
+     "Write data to reserved bank"
     },
     {NULL}  /* Sentinel */
 };
