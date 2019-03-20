@@ -24,6 +24,7 @@
 
 #include <Python.h>
 #include <structmember.h>
+#include <stdio.h>
 
 #define TMR_ENABLE_PARAM_STRINGS
 #define MAX_ANTENNA_COUNT 16
@@ -1659,12 +1660,13 @@ Reader_set_gen2_q(Reader* self, PyObject *args)
 }
 
 static PyObject *
-Reader_write_reserved_bank(Reader *self, PyObject *args, PyObject *kwds)
+Reader_write_reserved_bank(Reader *self, PyObject *args)
 {
     char* bank_data;
     char* epc_target;
     
-    uint16_t data_to_write[2];
+    uint8_t data_to_write[4];
+    uint16_t converted_data[2];
 
     TMR_TagOp tagop;
     TMR_uint16List bank_data_list;
@@ -1673,42 +1675,78 @@ Reader_write_reserved_bank(Reader *self, PyObject *args, PyObject *kwds)
     TMR_TagData data;
     TMR_TagData target;
     TMR_TagFilter filter;
-    // Read call arguments.
-    static char *kwlist[] = {"epc_target", "bank_data", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ss", kwlist, &epc_target, &bank_data))
-        return NULL;
+    if (!PyArg_ParseTuple(args,"ss", &epc_target, &bank_data))
+        return NULL; 
     /* build target tag to search */
     target.epcByteCount = strlen(epc_target) * sizeof(char) / 2;
     TMR_hexToBytes(epc_target, target.epc, target.epcByteCount, NULL);
     
-    /* build data tag to be writen */
-    //data.epcByteCount = strlen(epc_data) * sizeof(char) / 2;
-    //TMR_hexToBytes(epc_data, data.epc, data.epcByteCount, NULL);
+    TMR_hexToBytes(bank_data,data_to_write,4,NULL);
+    converted_data[0] = ((uint16_t)data_to_write[0] << 8) | data_to_write[1];
+    converted_data[1] = ((uint16_t)data_to_write[2] << 8) | data_to_write[3];
     
-    /* build block of data to be writen */
-    char sub_buffer[5];
-    memcpy(sub_buffer,&bank_data[0],4);
-    sub_buffer[4] = '\0';
-    TMR_hexToBytes(sub_buffer,data_to_write[0],4,NULL);
-    memcpy(sub_buffer,&bank_data[4],4);
-    sub_buffer[4] = '\0';
-    TMR_hexToBytes(sub_buffer,data_to_write[1],4,NULL);
-    bank_data_list.list = data_to_write;
-    bank_data_list.max = sizeof(data_to_write)/sizeof(data_to_write[0]);
+    bank_data_list.list = converted_data;
+    bank_data_list.max = bank_data_list.len = sizeof(converted_data)/sizeof(converted_data[0]);
     // Build filter target tag to be replaced.
-    TMR_TF_init_tag(&filter, &target);
-    //ret = TMR_TagOp_init_GEN2_BlockWrite(&tagop,TMR_GEN2_BANK_RESERVED,0,&bank_data_list);
+    if((ret = TMR_TF_init_tag(&filter, &target)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
     if((ret = TMR_TagOp_init_GEN2_BlockWrite(&tagop,TMR_GEN2_BANK_RESERVED,0,&bank_data_list)) != TMR_SUCCESS)
     {
         PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
         return NULL;
     }
-    ret = TMR_executeTagOp(&self->reader, &tagop, &filter, NULL);
-    // In case of not target tag found.
-    if (ret == TMR_ERROR_NO_TAGS_FOUND)
-        Py_RETURN_FALSE;
+    if((ret = TMR_executeTagOp(&self->reader, &tagop, &filter, NULL)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
     Py_RETURN_TRUE;
+    
 }
+
+static PyObject *
+Reader_kill_tag(Reader *self, PyObject *args)
+{
+    char* epc_target;
+    char* epc_password; 
+    uint8_t hex_password[4];
+    
+    
+    TMR_Status ret;
+    TMR_TagFilter filter;
+    TMR_TagData target;
+    TMR_GEN2_Password auth;
+    TMR_TagOp tagop;
+    if (!PyArg_ParseTuple(args,"ss", &epc_target, &epc_password))
+        return NULL; 
+    /* build target tag to search */
+    target.epcByteCount = strlen(epc_target) * sizeof(char) / 2;
+    TMR_hexToBytes(epc_target, target.epc, target.epcByteCount, NULL);
+    TMR_hexToBytes(epc_password,hex_password,4,NULL);
+    auth = ((uint32_t)hex_password[0] << 24) | ((uint32_t)hex_password[1] << 16) | ((uint32_t)hex_password[2] << 8) | hex_password[3];
+    // Build filter target tag to be replaced.
+    if((ret = TMR_TF_init_tag(&filter, &target)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
+    if((ret = TMR_TagOp_init_GEN2_Kill(&tagop,auth)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
+    if((ret = TMR_executeTagOp(&self->reader, &tagop, &filter, NULL)) != TMR_SUCCESS)
+    {
+        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+        return NULL;
+    }
+    Py_RETURN_TRUE;
+    
+}
+
 
 
 static PyMethodDef Reader_methods[] = {
@@ -1808,8 +1846,11 @@ static PyMethodDef Reader_methods[] = {
     {"get_param_list", (PyCFunction)Reader_get_param_list, METH_NOARGS,
      "Returns params list"
     },
-    {"write_reserved_bank", (PyCFunction)Reader_write_reserved_bank, METH_VARARGS | METH_KEYWORDS,
+    {"write_reserved_bank", (PyCFunction)Reader_write_reserved_bank, METH_VARARGS,
      "Write data to reserved bank"
+    },
+    {"kill_tag", (PyCFunction)Reader_kill_tag, METH_VARARGS,
+     "Kill tag. EPC and kill password needed as parameter"
     },
     {NULL}  /* Sentinel */
 };
