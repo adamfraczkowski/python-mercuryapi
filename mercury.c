@@ -962,6 +962,8 @@ Reader_get_param_list_values(Reader* self)
 
     PyObject *params;
     PyObject *tuple;
+    PyObject *tuple_ret;
+    PyObject *list_ret;
 
     TMR_String string_ret;
     char str[150];
@@ -969,12 +971,56 @@ Reader_get_param_list_values(Reader* self)
     string_ret.max = sizeof(str);
 
     int row;
+    //uint32_t
     uint32_t uint32_ret;
+    //TMR_Region
     TMR_Region region_ret;
+    //TMR_TagProtocol
     TMR_TagProtocol protocol_ret;
+    //TMR_PortValueList
     TMR_PortValueList portvalue_ret;
-    PyObject *tuple_ret;
-    PyObject *list_ret;
+    TMR_PortValue pow_value_list[MAX_ANTENNA_COUNT];
+    portvalue_ret.list = pow_value_list;
+    portvalue_ret.max = numberof(pow_value_list);
+    //bool
+    bool bool_ret;
+    //uint8list_ret
+    TMR_uint8List uint8list_ret;
+    uint8_t value_list[MAX_ANTENNA_COUNT];
+    uint8list_ret.list = value_list;
+    uint8list_ret.max = numberof(value_list);
+    //int16_t
+    int16_t int16_ret;
+    //uint16_t
+    uint16_t uint16_ret;
+    //int32_t
+    int32_t int32_ret;
+    //int8_t
+    int8_t int8_ret;
+    //uint8_t
+    uint8_t uint8_ret;
+    //TMR_GEN2_TagEncoding
+    TMR_GEN2_TagEncoding tagencoding_ret;
+    //TMR_GEN2_Session
+    TMR_GEN2_Session session_ret;
+    //TMR_GEN2_Target
+    TMR_GEN2_Target target_ret;
+    //TMR_GEN2_LinkFrequency
+    TMR_GEN2_LinkFrequency blf_ret;
+    //TMR_GEN2_Tari
+    TMR_GEN2_Tari tari_ret;
+    //TMR_RegionList
+    TMR_RegionList regions;
+    TMR_Region regionStore[32];
+    regions.list = regionStore;
+    regions.max = sizeof(regionStore)/sizeof(regionStore[0]);
+    regions.len = 0;
+    //TMR_SR_GEN2_Q
+    TMR_SR_GEN2_Q gen2q_ret;
+    //TMR_uint32List
+    //TMR_uint32List uint32List_ret;
+    //TMR_TagProtocolList
+    //TMR_TagProtocolList TagProtocolList_ret;
 
     if ((ret = TMR_paramList(&self->reader, list, &len)) != TMR_SUCCESS)
     {
@@ -1016,7 +1062,7 @@ Reader_get_param_list_values(Reader* self)
                     if ((ret = TMR_paramGet(&self->reader, list[i], &region_ret)) != TMR_SUCCESS)
                     {
                         PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
-                            return NULL;
+                        return NULL;
                     }
 
                     tuple = PyTuple_New(2);
@@ -1058,6 +1104,7 @@ Reader_get_param_list_values(Reader* self)
                         tuple_ret = PyTuple_New(2);
                         PyTuple_SetItem(tuple_ret, 0, PyLong_FromLong((long) portvalue_ret.list[row].port));
                         PyTuple_SetItem(tuple_ret, 1, PyLong_FromLong((long) portvalue_ret.list[row].value));
+                        
                         PyList_Append(list_ret, tuple_ret);
                     }
 
@@ -1066,6 +1113,293 @@ Reader_get_param_list_values(Reader* self)
                     PyTuple_SetItem(tuple, 1, list_ret);
                     PyList_Append(params, tuple);
                 } break;
+            //bool
+            case TMR_PARAM_ANTENNA_CHECKPORT:
+            case TMR_PARAM_GEN2_SEND_SELECT:
+            case TMR_PARAM_RADIO_ENABLEPOWERSAVE:
+            case TMR_PARAM_TAGREADDATA_RECORDHIGHESTRSSI:
+            case TMR_PARAM_TAGREADDATA_REPORTRSSIINDBM:
+            case TMR_PARAM_TAGREADDATA_UNIQUEBYANTENNA:
+            case TMR_PARAM_TAGREADDATA_UNIQUEBYDATA:
+            case TMR_PARAM_REGION_LBT_ENABLE:
+            case TMR_PARAM_RADIO_ENABLESJC:
+            //case TMR_PARAM_EXTENDEDEPC: //causes error, not sure why
+            case TMR_PARAM_STATUS_ENABLE_ANTENNAREPORT:
+            case TMR_PARAM_STATUS_ENABLE_FREQUENCYREPORT:
+            case TMR_PARAM_STATUS_ENABLE_TEMPERATUREREPORT:
+            case TMR_PARAM_TAGREADDATA_ENABLEREADFILTER:
+            case TMR_PARAM_TAGREADDATA_UNIQUEBYPROTOCOL:
+            case TMR_PARAM_READER_WRITE_EARLY_EXIT:
+            //case TMR_PARAM_REGULATORY_ENABLE: //causes error, not sure why
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &bool_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, (bool_ret == true?Py_True:Py_False));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_String
+            case TMR_PARAM_VERSION_HARDWARE:
+            case TMR_PARAM_VERSION_SERIAL:
+            case TMR_PARAM_VERSION_MODEL:
+            case TMR_PARAM_VERSION_SOFTWARE:
+            case TMR_PARAM_URI:
+            case TMR_PARAM_PRODUCT_GROUP:
+            case TMR_PARAM_READER_DESCRIPTION:
+            case TMR_PARAM_READER_HOSTNAME:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &string_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyUnicode_FromString(string_ret.value));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_uint8List
+            case TMR_PARAM_ANTENNA_PORTLIST:
+            case TMR_PARAM_ANTENNA_CONNECTEDPORTLIST:
+            case TMR_PARAM_ANTENNA_PORTSWITCHGPOS:
+            case TMR_PARAM_GPIO_INPUTLIST:
+            case TMR_PARAM_GPIO_OUTPUTLIST:
+            //case TMR_PARAM_LICENSE_KEY: //causes error, not sure why
+            case TMR_PARAM_TRIGGER_READ_GPI:
+            case TMR_PARAM_LICENSED_FEATURES:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &uint8list_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    list_ret = PyList_New(0);
+                    for (row = 0; row < uint8list_ret.len; row++)
+                    {
+                        PyList_Append(list_ret, PyLong_FromLong((long) uint8list_ret.list[row]));
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, list_ret);
+
+                    PyList_Append(params, tuple);
+                } break;
+            //int16_t
+            case TMR_PARAM_RADIO_POWERMAX:
+            case TMR_PARAM_RADIO_POWERMIN:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &int16_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong((long) int16_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //uint16_t
+            case TMR_PARAM_PRODUCT_GROUP_ID:
+            case TMR_PARAM_PRODUCT_ID:
+            case TMR_PARAM_TAGREADATA_TAGOPSUCCESSCOUNT:
+            case TMR_PARAM_TAGREADATA_TAGOPFAILURECOUNT:
+            case TMR_PARAM_READER_WRITE_REPLY_TIMEOUT:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &uint16_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong((long) uint16_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //int32_t
+            case TMR_PARAM_RADIO_READPOWER:
+            case TMR_PARAM_RADIO_WRITEPOWER:
+            case TMR_PARAM_TAGREADDATA_READFILTERTIMEOUT:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &int32_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong((long) int32_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //int8_t
+            case TMR_PARAM_RADIO_TEMPERATURE:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &int8_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong((long) int8_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //uint8_t
+            case TMR_PARAM_TAGOP_ANTENNA:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &uint8_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong((long) uint8_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_GEN2_TagEncoding
+            case TMR_PARAM_GEN2_TAGENCODING:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &tagencoding_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong(tagencoding_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_GEN2_Session
+            case TMR_PARAM_GEN2_SESSION:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &session_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong(tagencoding_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_GEN2_Target
+            case TMR_PARAM_GEN2_TARGET:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &target_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong(target_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_GEN2_LinkFrequency
+            case TMR_PARAM_GEN2_BLF:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &blf_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong(blf_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_GEN2_Tari
+            case TMR_PARAM_GEN2_TARI:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &tari_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong(tari_ret));
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_RegionList
+            case TMR_PARAM_REGION_SUPPORTEDREGIONS:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &regions)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    list_ret = PyList_New(0);
+                    for (row = 0; row < regions.len; row++)
+                    {
+                        const char* name = region2str(regions.list[row]);
+                        if (name != NULL)
+                        {
+                            PyList_Append(list_ret, PyUnicode_FromString(name));
+                        }
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, list_ret);                    
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_SR_GEN2_Q
+            case TMR_PARAM_GEN2_Q:
+                {
+                    if ((ret = TMR_paramGet(&self->reader, list[i], &gen2q_ret)) != TMR_SUCCESS)
+                    {
+                        PyErr_SetString(PyExc_TypeError, TMR_strerr(&self->reader, ret));
+                        return NULL;
+                    }
+
+                    tuple = PyTuple_New(2);
+                    PyTuple_SetItem(tuple, 0, PyUnicode_FromString(TMR_paramName(list[i])));
+                    PyTuple_SetItem(tuple, 1, PyLong_FromLong((long) gen2q_ret.u.staticQ.initialQ));                    
+
+                    PyList_Append(params, tuple);
+                } break;
+            //TMR_TagProtocolList
+            case TMR_PARAM_VERSION_SUPPORTEDPROTOCOLS:
+            case TMR_PARAM_SELECTED_PROTOCOLS:
+            //TMR_uint32List
+            case TMR_PARAM_REGION_HOPTABLE:
+            case TMR_PARAM_PROBEBAUDRATES:
+            //others
+            default:
+                break;
         }
     }
     return params;
