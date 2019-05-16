@@ -4,24 +4,34 @@ PYTHON ?= $(shell { command -v python3 || command -v python; } 2>/dev/null)
 STAGING_DIR ?= /home/adam/Dokumenty/source/staging_dir
 
 
+TOOLS_ROOT      ?= $(STAGING_DIR)/toolchain-mipsel_24kc_gcc-7.3.0_musl
+TOOLS_PATH	    ?= $(TOOLS_ROOT)/bin
+
+MIPS_CC			?= $(TOOLS_PATH)/mipsel-openwrt-gcc
+MIPS_CFLAGS		?= $(TOOLS_ROOT)/include
+
 .PHONY: all mercuryapi install
 
 all: mercuryapi	
-    ifeq ($(PLATFORM),MIPS)
-    $(PYTHON) -c "import setuptools; execfile('setup-mips.py')" -x build
-    else     
-    $(PYTHON) setup.py build
-    endif
+ifeq ($(PLATFORM),MIPS)    
+	CC=$(MIPS_CC)
+	CFLAGS=$(MIPS_CFLAGS)
+	export CC=$(CC)
+	export CFLAGS=$(CFLAGS)
+	$(PYTHON) setup.py build
+else     
+	$(PYTHON) setup.py build
+endif
 
 install: mercuryapi
 	$(PYTHON) setup.py install
 
 mercuryapi: mercuryapi-$(APIVER)/.done
-    ifeq ($(PLATFORM),MIPS)	
-    STAGING_DIR=$(STAGING_DIR) PLATFORM=MIPS make -C mercuryapi-$(APIVER)/c/src/api
-    else
-    make -C mercuryapi-$(APIVER)/c/src/api    
-    endif
+ifeq ($(PLATFORM),MIPS)	
+	STAGING_DIR=$(STAGING_DIR) PLATFORM=MIPS SKIP_SAMPLES=TRUE make -C mercuryapi-$(APIVER)/c/src/api
+else
+	make -C mercuryapi-$(APIVER)/c/src/api    
+endif
 	mkdir -p build/mercuryapi/include
 	find mercuryapi-*/c/src/api -type f -name '*.h' ! -name '*_imp.h' | grep -v 'ltkc_win32' | xargs cp -t build/mercuryapi/include
 	mkdir -p build/mercuryapi/lib
@@ -29,8 +39,8 @@ mercuryapi: mercuryapi-$(APIVER)/.done
 
 mercuryapi-$(APIVER)/.done: $(APIZIP)
 	unzip $(APIZIP)
-    mkdir -p mercuryapi-$(APIVER)/c/src/arch/MIPS/openwrt
-    cp arch/mips/module.mk mercuryapi-$(APIVER)/c/src/arch/MIPS/openwrt/
+	mkdir -p mercuryapi-$(APIVER)/c/src/arch/MIPS/openwrt
+	cp arch/mips/module.mk mercuryapi-$(APIVER)/c/src/arch/MIPS/openwrt/
 	patch -p0 -d mercuryapi-$(APIVER) < mercuryapi.patch
 	touch mercuryapi-$(APIVER)/.done
 
