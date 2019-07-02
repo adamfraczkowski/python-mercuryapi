@@ -48,7 +48,7 @@ setup(name="mercuryapi", version="0.4.2",
                                            mercuryapi + 'pthreads-win32/pthreads.2'],
                              libraries=["pthreadVC2"],
                              # FIXME: update to include the path to pthreadVC2.lib
-                             library_dirs=[mercuryapi + 'pthreads-win32/x86']
+                             library_dirs=[mercuryapi + 'pthreads-win32/x64']
                   )],
       # FIXME: update to include the path to pthreadVC2.dll
-      data_files = [('', [mercuryapi + 'pthreads-win32/x86/pthreadVC2.dll'])])
+      data_files = [('', [mercuryapi + 'pthreads-win32/x64/pthreadVC2.dll'])])

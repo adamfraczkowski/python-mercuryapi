@@ -426,12 +426,13 @@ To build an installer for other Python releases you need to:
  * Download the [latest pthreads-win32](ftp://sourceware.org/pub/pthreads-win32/dll-latest)
    binaries (both .dll and .lib) for your architecture and put them into
    mercuryapi-1.31.2.40\c\src\pthreads-win32\x86 or \x64
+ * It already on main folder "pthreads"
  * Obtain Microsoft Visual Studio 2017, including the Python extensions
  * Open the Solution and review the
    [setup-win.py](https://github.com/gotthardp/python-mercuryapi/blob/master/setup-win.py)
    * Verify the `mercuryapi` directory
    * Set `library_dirs` and `data_files` to the pthreads-win32 you downloaded
-   * Set Script Arguments to `bdist_wininst -p win32` (default) or `bdist_wininst -p amd64`
+   * Set Script Arguments to `bdist_wininst -p win32` (default) or `bdist_wininst -p amd64` or `bdist_dumb -p amd64 --format zip`
  * Start setup-win.py (without debugging)
 
 ### Linux
