@@ -52,36 +52,80 @@ or
 reader = mercury.Reader("tmr://192.168.1.101")
 ```
 
-#### reader.get_temperature()
-Returns the chip temperature in degrees of Celsius.
-
-#### reader.get_supported_regions()
-Lists supported regions for the connected device.
-
-For example:
-```python
-print(reader.get_supported_regions())
-['NA2', 'IN', 'JP', 'PRC', 'EU3', 'KR2', 'AU', 'NZ']
-```
-
-#### reader.get_power_range()
-Lists supported radio power range, in centidBm.
-
-For example:
-```python
-print(reader.get_power_range())
-(0, 3000)
-```
-
-#### reader.get_antennas()
-Lists available antennas.
+#### reader.set_read_plan(*antennas*, *protocol*, *epc_target=None*, *bank=[]*, *read_power=default*)
+Specifies the antennas and protocol to use for a search:
+ * *antennas* list define which antennas (or virtual antenna numbers) to use in the search
+ * *protocol* defines the protocol to search on. Supported values are:
+   * `"GEN2"`, UPC GEN2
+   * `"ISO180006B"`, ISO 180006B
+   * `"UCODE"`, ISO 180006B UCODE
+   * `"IPX64"`, IPX (64kbps link rate)
+   * `"IPX256"`, IPX (256kbps link rate)
+   * `"ATA"`
+ * *epc_target* defines EPC of the tag to read as a hexa-string, e.g. `b'E2002047381502180820C296'`
+ * *bank* defines the memory banks to read. Supported values are:
+   * `"reserved"`
+   * `"epc"`
+   * `"tid"`
+   * `"user"`
+ * *read_power* defines the transmit power, in centidBm, for read operations. If not given,
+   a reader specific default value is used.
 
 For example:
 ```python
-print(reader.get_antennas())
-[1, 2]
+reader.set_read_plan([1], "GEN2")
+```
+or
+```python
+reader.set_read_plan([1], "GEN2", bank=["user"], read_power=1900)
 ```
 
+#### reader.read(*timeout=500*)
+Performs a synchronous read, and then returns a list of *TagReadData* objects resulting from the search.
+If no tags were found then the list will be empty.
+ * *timeout* sets the reading time
+
+For example:
+```python
+print(reader.read())
+[b'E2002047381502180820C296', b'0000000000000000C0002403']
+```
+
+#### reader.write(*epc_code*, *epc_target=None*)
+Performs a synchronous write. Returns *True* upon success, or *False* if no tag
+was found. Upon failure an exception is raised.
+
+For example:
+```python
+old_epc = b'E2002047381502180820C296'
+new_epc = b'E20020470000000000000012'
+
+reader = Reader('llrp://192.168.0.2')
+reader.set_read_plan([1], "GEN2")
+
+if reader.write(epc_code=new_epc, epc_target=old_epc):
+    print('Rewrited "{}" with "{}"'.format(old_epc, new_epc))
+else:
+    print('No tag found')
+```
+
+#### reader.start_reading(*callback*, *on_time=250*, *off_time=0*)
+Starts asynchronous reading. It returns immediately and begins a sequence of
+reads or a continuous read. The results are passed to the *callback*.
+The reads are repeated until the `reader.stop_reading()` method is called
+ * *callback(TagReadData)* will be invoked for every tag detected
+ * *on_time* sets the duration, in milliseconds, for the reader to be actively querying
+ * *off_time* duration, in milliseconds, for the reader to be quiet while querying
+
+For example:
+```python
+reader.start_reading(lambda tag: print(tag.epc))
+b'E2002047381502180820C296'
+b'0000000000000000C0002403'
+```
+
+#### reader.stop_reading()
+Stops the asynchronous reading started by `reader.start_reading()`.
 #### reader.get_connected_port_list()
 Lists connected antennas.
 
@@ -96,9 +140,60 @@ Lists configured read powers for each antenna. [(antenna, power)]
 
 For example:
 ```python
-print(reader.get_read_powers())
-[(1, 1800), (2, 3000)]
+reader.stop_reading()
 ```
+
+#### reader.read_tag_mem(*bank*, *address*, *count*, *epc_target=None*)
+Reads bytes from the memory bank of a tag. Returns a *bytearray* or None if no
+tag was found. Upon failure an exception is raised.
+
+For example:
+```python
+print(reader.read_tag_mem(1, 0x08, 8))
+bytearray(b'\x00\x00\x00\x16\x12\x00\x00\x61')
+```
+
+#### reader.write_tag_mem(*bank*, *address*, *data*, *epc_target=None*)
+Writes bytes to the memory bank of a tag. Returns *True* upon success, or
+*False* if no tag was found. Upon failure an exception is raised.
+
+For example:
+```python
+reader.write_tag_mem(1, 0x08, bytearray(b'\x00\x00\x00\x16\x12\x00\x00\x61'))
+```
+
+#### reader.gpi_get(*pin*)
+Returns value of a GPIO *pin*, or *None* is the pin is not configured as input (see `get_gpio_inputs`).
+
+For example:
+```python
+print(get_gpio_inputs())
+[1]
+print(reader.gpi_get(1))
+True
+```
+
+#### reader.gpo_set(*pin*, *value*)
+Sets value of a GPIO *pin* configured as output (see `get_gpio_outputs`).
+
+For example:
+```python
+print(get_gpio_outputs())
+[1]
+reader.gpo_set(1, False)
+```
+
+#### reader.get_model()
+Returns a model identifier for the connected reader hardware.
+
+For example:
+```python
+print(reader.get_model())
+M6e Nano
+```
+
+#### reader.get_serial()
+Returns a serial number of the reader, the same number printed on the barcode label.
 
 #### reader.set_region(*region*)
 Controls the Region of Operation for the connected device:
@@ -124,109 +219,112 @@ For example:
 reader.set_region("EU3")
 ```
 
-#### reader.set_read_plan(*antennas*, *protocol*, *bank=[]*, *read_power=default*)
-Specifies the antennas and protocol to use for a search:
- * *antennas* list define which antennas (or virtual antenna numbers) to use in the search
- * *protocol* defines the protocol to search on. Supported values are:
-   * `"GEN2"`, UPC GEN2
-   * `"ISO180006B"`, ISO 180006B
-   * `"UCODE"`, ISO 180006B UCODE
-   * `"IPX64"`, IPX (64kbps link rate)
-   * `"IPX256"`, IPX (256kbps link rate)
-   * `"ATA"`
- * *bank* defines the memory banks to read. Supported values are:
-   * `"reserved"`
-   * `"epc"`
-   * `"tid"`
-   * `"user"`
- * *read_power* defines the transmit power, in centidBm, for read operations. If not given,
-   a reader specific default value is used.
+#### reader.get_supported_regions()
+Lists supported regions for the connected device.
 
 For example:
 ```python
-reader.set_read_plan([1], "GEN2")
-```
-or
-```python
-reader.set_read_plan([1], "GEN2", bank=["user"], read_power=1900)
+print(reader.get_supported_regions())
+['NA2', 'IN', 'JP', 'PRC', 'EU3', 'KR2', 'AU', 'NZ']
 ```
 
-#### reader.set_read_powers(*antennas*, *powers*)
+#### reader.get_hop_table()
+Gets the frequencies for the reader to use, in kHz.
+
+#### reader.set_hop_table(*list*)
+Sets the frequencies for the reader to use, in kHz.
+
+#### reader.get_hop_time()
+Gets the frequency hop time, in milliseconds.
+
+#### reader.set_hop_time(*num*)
+Sets the frequency hop time, in milliseconds.
+
+#### reader.get_antennas()
+Lists available antennas.
+
+For example:
+```python
+print(reader.get_antennas())
+[1, 2]
+```
+
+#### reader.get_connected_ports()
+Returns numbers of the antenna ports where the reader has detected antennas.
+
+For example:
+```python
+print(reader.get_connected_ports())
+[1]
+```
+
+#### reader.get_power_range()
+Lists supported radio power range, in centidBm.
+
+For example:
+```python
+print(reader.get_power_range())
+(0, 3000)
+```
+
+#### reader.get_read_powers()
+Lists configured read powers for each antenna. [(antenna, power)].
+The list does not include antennas with default power setting, so the list may be empty.
+
+For example:
+```python
+print(reader.get_read_powers())
+[(1, 1800), (2, 3000)]
+```
+
+#### reader.get_write_powers()
+Lists configured write powers for each antenna. [(antenna, power)].
+
+#### reader.set_read_powers(*powers*)
 Set the read power for each listed antenna and return the real setted values.
 Setted values may differ from those passed due to reader rounding.
- * *antennas* list define which antennas (or virtual antenna numbers) are going to be setted.
- * *powers* list define the power, in centidBm, for each antenna. Overrides the value from
-    set_read_plan or reader specific default.
-      * Power values must be within the allowed power range.
-
+ * *powers* list of 2-tuples that include:
+    * which antenna (or virtual antenna numbers) is going to be setted
+    * required power, in centidBm, for the antenna, overriding the value from
+      set_read_plan or reader specific default.
+      The value must be within the allowed power range.
 
 For example:
 ```python
-setted_powers = reader.set_read_powers([1, 2], [1533, 1912])
+setted_powers = reader.set_read_powers([(1, 1533), (2, 1912)])
 print(setted_powers)
 [(1, 1525), (2, 1900)]
 ```
 
-#### reader.read(*timeout=500*)
-Performs a synchronous read, and then returns a list of *TagReadData* objects resulting from the search.
-If no tags were found then the list will be empty.
- * *timeout* sets the reading time
+#### reader.set_write_powers(*powers*)
+Set the write power for each listed antenna and return the real setted values.
+
+#### reader.get_gpio_inputs()
+Get numbers of the GPIO pins available as input pins on the device.
 
 For example:
 ```python
-print(reader.read())
-[b'E2002047381502180820C296', b'0000000000000000C0002403']
+print(reader.get_gpio_inputs())
+[1, 2]
 ```
 
-#### reader.write(*epc_target, epc_code*)
-Performs a synchronous write and then returns a boolean indicating the success
-of the operation.
+#### reader.set_gpio_inputs(*list*)
+Set numbers of the GPIO pins available as input pins on the device.
 
 For example:
 ```python
-old_epc = 'E2002047381502180820C296'
-new_epc = 'E20020470000000000000012'
-
-reader = Reader('llrp://192.168.0.2')
-reader.set_read_plan([1], "GEN2")
-
-if reader.write(epc_target=old_epc, epc_code=new_epc):
-    print('Rewrited "{}" with "{}"'.format(old_epc, new_epc))
-else:
-    print('Failed writing "{}" with "{}"'.format(old_epc, new_epc))
+reader.set_gpio_inputs([1, 2])
 ```
 
-#### reader.start_reading(*callback*, *on_time=250*, *off_time=0*)
-Starts asynchronous reading. It returns immediately and begins a sequence of
-reads or a continuous read. The results are passed to the *callback*.
-The reads are repeated until the `reader.stop_reading()` method is called
- * *callback(TagReadData)* will be invoked for every tag detected
- * *on_time* sets the duration, in milliseconds, for the reader to be actively querying
- * *off_time* duration, in milliseconds, for the reader to be quiet while querying
+#### reader.get_gpio_outputs()
+Get numbers of the GPIO pins available as output pins on the device.
 
-For example:
-```python
-reader.start_reading(lambda tag: print(tag.epc))
-b'E2002047381502180820C296'
-b'0000000000000000C0002403'
-```
+#### reader.set_gpio_outputs(*list*)
+Set numbers of the GPIO pins available as output pins on the device.
 
-#### reader.stop_reading()
-Stops the asynchronous reading started by `reader.start_reading()`.
-
-For example:
-```python
-reader.stop_reading()
-```
-
-#### reader.get_model()
-Returns a model identifier for the connected reader hardware.
-
-For example:
-```python
-print(reader.get_model())
-M6e Nano
-```
+On some devices this parameter is not writeable. Thus, instead of calling
+`set_gpio_outputs` with the a set you may need to call `set_gpio_inputs`
+with the pin omitted.
 
 #### reader.get_gen2_blf()
 Returns the current Gen2 BLF setting.
@@ -372,12 +470,17 @@ print(reader.get_gen2_q())
 (1, 4)
 ```
 
+#### reader.get_temperature()
+Returns the chip temperature in degrees of Celsius.
+
 ### TagReadData Object
 Represents a read of an RFID tag:
  * *epc* corresponds to the Electronic Product Code
+ * *phase* of the tag response
  * *antenna* indicates where the tag was read
  * *read_count* indicates how many times was the tag read during interrogation
  * *rssi* is the strength of the signal recieved from the tag
+ * *frequency* the tag was read with
  * *epc_mem_data* contains the EPC bank data bytes
  * *tid_mem_data* contains the TID bank data bytes
  * *user_mem_data* contains the User bank data bytes
@@ -438,11 +541,11 @@ To build an installer for other Python releases you need to:
 ### Linux
 First, make sure you have the required packages
 ```bash
-yum install patch libxslt gcc readline-devel python-devel python-setuptools
+yum install unzip patch libxslt gcc readline-devel python-devel python-setuptools
 ```
 or
 ```bash
-apt-get install patch xsltproc gcc libreadline-dev python-dev python-setuptools
+apt-get install unzip patch xsltproc gcc libreadline-dev python-dev python-setuptools
 ```
 
 Both Python 2.x and Python 3.x are supported. To use the Python 3.x you may need to
@@ -472,9 +575,19 @@ which is a shortcut to running
 sudo python setup.py install
 ```
 
+If you are getting a "Module not found" error, please double check that you built and
+installed the module using the same Python version (2 or 3) you now use to run your script.
+(Or simply build and install it twice: once with python2 and once with python3.)
+
 To access ports like `/dev/ttyUSB0` as a non-root user you may need to add this
 user to the `dialout` group:
 ```bash
 sudo usermod -a -G dialout $USER
 ```
 
+## Copyright and Licensing
+
+The python-mercuryapi is distributed under the terms of the MIT License.
+See the [LICENSE](LICENSE).
+
+Copyright (c) 2016-2019 Petr Gotthard

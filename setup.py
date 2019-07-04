@@ -9,12 +9,11 @@ class my_build(build):
         os.system("make mercuryapi")
         build.run(self)
 
-setup(name="python-mercuryapi", version="0.4.2",
+setup(name="python-mercuryapi", version="0.5.2",
       author="Petr Gotthard",
       author_email="petr.gotthard@centrum.cz",
       description="Python wrapper for the ThingMagic Mercury API",
-      long_description=open('README.md').read(),
-      long_description_content_type="text/markdown",
+      long_description=open('long_description.txt').read(),
       url="https://github.com/gotthardp/python-mercuryapi",
       classifiers=[
         "Programming Language :: Python :: 2",
