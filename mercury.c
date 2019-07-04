@@ -1548,37 +1548,7 @@ Reader_get_param_list_values(Reader* self)
     return params;
 }
 
-static PyObject *
-Reader_get_model(Reader* self)
-{
-    int i;
-    TMR_Status ret;
-    PyObject *result = PyList_New(0);
 
-    TMR_PortValueList value_list;
-    TMR_PortValue values[MAX_ANTENNA_COUNT];
-
-    value_list.list = values;
-    value_list.max = MAX_ANTENNA_COUNT;
-    value_list.len = 0;
-
-    if ((ret = TMR_paramGet(reader, param, &value_list)) != TMR_SUCCESS)
-    {
-        PyErr_SetString(PyExc_RuntimeError, TMR_strerr(reader, ret));
-        return NULL;
-    }
-
-    for (i = 0; i < value_list.len; i++)
-    {
-        PyObject *item;
-        item = PyTuple_New(2);
-        PyTuple_SetItem(item, 0, PyLong_FromUnsignedLong(value_list.list[i].port));
-        PyTuple_SetItem(item, 1, PyLong_FromLong(value_list.list[i].value));
-        PyList_Append(result, item);
-    }
-
-    return result;
-}
 
 static PyObject *
 Reader_get_connected_port_list(Reader *self)
@@ -1604,6 +1574,38 @@ Reader_get_connected_port_list(Reader *self)
         PyList_Append(antennas, PyLong_FromLong((long) port_list.list[i]));
     }
     return antennas;
+}
+
+static PyObject*
+get_PortValueList(TMR_Reader* reader, int param)
+{
+	int i;
+	TMR_Status ret;
+	PyObject* result = PyList_New(0);
+
+	TMR_PortValueList value_list;
+	TMR_PortValue values[MAX_ANTENNA_COUNT];
+
+	value_list.list = values;
+	value_list.max = MAX_ANTENNA_COUNT;
+	value_list.len = 0;
+
+	if ((ret = TMR_paramGet(reader, param, &value_list)) != TMR_SUCCESS)
+	{
+		PyErr_SetString(PyExc_RuntimeError, TMR_strerr(reader, ret));
+		return NULL;
+	}
+
+	for (i = 0; i < value_list.len; i++)
+	{
+		PyObject* item;
+		item = PyTuple_New(2);
+		PyTuple_SetItem(item, 0, PyLong_FromUnsignedLong(value_list.list[i].port));
+		PyTuple_SetItem(item, 1, PyLong_FromLong(value_list.list[i].value));
+		PyList_Append(result, item);
+	}
+
+	return result;
 }
 
 static PyObject *
