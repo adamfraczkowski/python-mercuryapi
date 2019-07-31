@@ -36,10 +36,10 @@ else ifeq ($(PLATFORM),HOST)
 else
 	make -C mercuryapi-$(APIVER)/c/src/api    
 endif
-mkdir -p build/mercuryapi/include
-find mercuryapi-*/c/src/api -type f -name '*.h' ! -name '*_imp.h' | grep -v 'ltkc_win32' | xargs cp -t build/mercuryapi/include
-mkdir -p build/mercuryapi/lib
-find mercuryapi-*/c/src/api -type f -name '*.a' -or -name '*.so.1' | xargs cp -t build/mercuryapi/lib
+	mkdir -p build/mercuryapi/include
+	find mercuryapi-*/c/src/api -type f -name '*.h' ! -name '*_imp.h' | grep -v 'ltkc_win32' | xargs cp -t build/mercuryapi/include
+	mkdir -p build/mercuryapi/lib
+	find mercuryapi-*/c/src/api -type f -name '*.a' -or -name '*.so.1' | xargs cp -t build/mercuryapi/lib
 
 mercuryapi-$(APIVER)/.done: $(APIZIP)
 	unzip $(APIZIP)
