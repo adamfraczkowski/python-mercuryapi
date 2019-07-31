@@ -69,7 +69,7 @@ all: $(STATIC_LIB) $(SHARED_LIB) $(PROGS)
 $(OBJS):
 
 $(SHARED_LIB): $(OBJS)
-	$(CC) $(CFLAGS) -shared -Wl,-rpath,/tm/lib,-soname,libmercuryapi.so.1 -o $@ $^ $(OPTOBJS) -lpthread
+	$(CC) $(CFLAGS) -shared -Wl,-rpath,/tm/lib,-soname,libmercuryapi.so.1 -o $@ $^ $(OPTOBJS)
 $(STATIC_LIB): $(OBJS)
 	ar -rc $@ $^ $(OPTOBJS)
 
