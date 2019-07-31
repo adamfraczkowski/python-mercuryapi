@@ -26,7 +26,11 @@ else
 endif
 
 install: mercuryapi
+ifeq ($(PLATFORM),HOST)
+	$(PYTHON) setup.py bdist_wheel
+else     
 	$(PYTHON) setup.py install
+endif
 
 mercuryapi: mercuryapi-$(APIVER)/.done
 ifeq ($(PLATFORM),MIPS)	
