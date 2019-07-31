@@ -20,6 +20,10 @@ ifeq ($(PLATFORM),MIPS)
 	export CFLAGS=$(CFLAGS)
 	$(PYTHON) setup.py build
 else ifeq ($(PLATFORM),HOST)
+	export CC=gcc
+	export cc=gcc
+	export SKIP_SAMPLES=TRUE
+	export TMR_ENABLE_SERIAL_READER_ONLY=1
 	$(PYTHON) setup.py bdist_wheel
 else     
 	$(PYTHON) setup.py build
@@ -27,6 +31,10 @@ endif
 
 install: mercuryapi
 ifeq ($(PLATFORM),HOST)
+	export CC=gcc
+	export cc=gcc
+	export SKIP_SAMPLES=TRUE
+	export TMR_ENABLE_SERIAL_READER_ONLY=1
 	$(PYTHON) setup.py bdist_wheel
 else     
 	$(PYTHON) setup.py install
