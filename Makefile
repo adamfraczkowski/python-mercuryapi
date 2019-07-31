@@ -20,7 +20,7 @@ ifeq ($(PLATFORM),MIPS)
 	export CFLAGS=$(CFLAGS)
 	$(PYTHON) setup.py build
 else ifeq ($(PLATFORM),HOST)
-	export CC=gcc
+	$(PYTHON) setup.py bdist_wheel
 else     
 	$(PYTHON) setup.py build
 endif
@@ -32,14 +32,18 @@ mercuryapi: mercuryapi-$(APIVER)/.done
 ifeq ($(PLATFORM),MIPS)	
 	STAGING_DIR=$(STAGING_DIR) PLATFORM=MIPS SKIP_SAMPLES=TRUE make -C mercuryapi-$(APIVER)/c/src/api
 else ifeq ($(PLATFORM),HOST)
-	SKIP_SAMPLES=TRUE make -C mercuryapi-$(APIVER)/c/src/api
+	TMR_ENABLE_SERIAL_READER_ONLY=1 SKIP_SAMPLES=TRUE CC=gcc make -C mercuryapi-$(APIVER)/c/src/api
+	mkdir -p build/mercuryapi/include
+	find mercuryapi-*/c/src/api -type f -name '*.h' ! -name '*_imp.h' | grep -v 'ltkc_win32' | xargs /usr/bin/cp -t build/mercuryapi/include
+	mkdir -p build/mercuryapi/lib
+	find mercuryapi-*/c/src/api -type f -name '*.a' -or -name '*.so.1' | xargs /usr/bin/cp -t build/mercuryapi/lib
 else
-	make -C mercuryapi-$(APIVER)/c/src/api    
-endif
+	make -C mercuryapi-$(APIVER)/c/src/api
 	mkdir -p build/mercuryapi/include
 	find mercuryapi-*/c/src/api -type f -name '*.h' ! -name '*_imp.h' | grep -v 'ltkc_win32' | xargs cp -t build/mercuryapi/include
 	mkdir -p build/mercuryapi/lib
 	find mercuryapi-*/c/src/api -type f -name '*.a' -or -name '*.so.1' | xargs cp -t build/mercuryapi/lib
+endif
 
 mercuryapi-$(APIVER)/.done: $(APIZIP)
 	unzip $(APIZIP)
