@@ -26,6 +26,7 @@
 #include <structmember.h>
 #include <stdio.h>
 
+#define TMR_ENABLE_SERIAL_READER_ONLY
 #define TMR_ENABLE_PARAM_STRINGS
 #define MAX_ANTENNA_COUNT 16
 #define MAX_GPIO_COUNT 4
