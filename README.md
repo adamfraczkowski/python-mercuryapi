@@ -1,6 +1,6 @@
 # Python wrapper for the ThingMagic Mercury API
 
-The [ThingMagic Mercury API](http://www.thingmagic.com/mercuryapi) is used to discover,
+The [ThingMagic Mercury API](https://www.jadaktech.com/products/thingmagic-rfid/thingmagic-mercury-api) is used to discover,
 provision and control ThingMagic RFID readers.
 
 Reading RFID tags is as simple as this:
@@ -17,7 +17,9 @@ print(reader.read())
 ## Installation
 On Windows, use the pre-compiled binary installer.
 
-On Linux, build and install using `pip install python-mercuryapi`.
+On Linux:
+ * Check prerequisites using `apt-get install unzip patch xsltproc gcc libreadline-dev`,
+ * Then build and install using `pip install python-mercuryapi`.
 
 Note: The build process will (temporarily) require upto 500MB of free space in `/tmp`.
 If your `/tmp` is smaller, use e.g. `pip install python-mercuryapi -b $HOME/tmp` to redirect.
@@ -33,7 +35,7 @@ import mercury
 ### Reader Object
 Represents a connection to the reader.
 
-#### mercury.Reader(*uri*, *baudrate=115200*)
+#### mercury.Reader(*uri*, *baudrate=115200*, *antenna*, *protocol*)
 Object constructor. Connects to the reader:
  * *uri* identifies the device communication channel:
    * `"tmr:///com2"` is a typical format to connect to a serial based module on Windows COM2
@@ -42,6 +44,7 @@ Object constructor. Connects to the reader:
  * *baudrate* defines the desired communication speed of the serial port.
    Supported values include 110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 38400, 57600 and 115200 (default).
    This parameter is not allowed for network-connected readers.
+ * *antenna* number and *protocol* for operations not using the read-plan (see bellow)
 
 For example:
 ```python
@@ -62,7 +65,7 @@ Specifies the antennas and protocol to use for a search:
    * `"IPX64"`, IPX (64kbps link rate)
    * `"IPX256"`, IPX (256kbps link rate)
    * `"ATA"`
- * *epc_target* defines EPC of the tag to read as a hexa-string, e.g. `b'E2002047381502180820C296'`
+ * *epc_target* defines tags to be addressed (see Filtering)
  * *bank* defines the memory banks to read. Supported values are:
    * `"reserved"`
    * `"epc"`
@@ -80,6 +83,57 @@ or
 reader.set_read_plan([1], "GEN2", bank=["user"], read_power=1900)
 ```
 
+#### Target filtering
+
+The *epc_target* may be:
+ * *None* to address all tags
+ * Single hexa-string, e.g. `b'E2002047381502180820C296'` to address a tag
+   with specific data (non-protocol-specific)
+ * List of hexa-strings to address multiple Gen2 tags with given EPC
+ * List of Gen2 Select filters (or even a single Gen2 filter) to address a given
+   tag population (see below).
+
+The Gen2 Select filter is a Dict with arguments:
+ * *reserved*, *epc*, *tid*, or *user* that defines the mask as a hexa-string.
+   This also determines the memory bank in which to compare the mask.
+ * *invert* flag to match tags **not** matching the mask (by default *false*)
+ * *bit* indicating the location (in bits) at which to begin comparing the mask
+   (by default 32 for the *epc* bank and 0 otherwise)
+ * *len* indicating length (in bits) of the mask (by default, the entire
+   hexa-string given will be matched)
+ * *action* defines the filter action on the matching and not-matching tags
+   (by default, *on&off* for the first filter in the list and *on&nop* otherwise)
+
+  Action   | Tag Matching | Tag Not-Matching
+ ----------|--------------|------------------
+ *on&off*  | Assert SL    | Deassert SL
+ *on&nop*  | Assert SL    | Do nothing
+ *nop&off* | Do nothing   | Deassert SL
+ *neg&nop* | Negate SL    | Do nothing
+ *off&on*  | Deassert SL  | Assert SL
+ *off&nop* | Deassert SL  | Do nothing
+ *nop&on*  | Do nothing   | Assert SL
+ *nop&neg* | Do nothing   | Negate SL
+
+The tuples are processed sequentially and depending on the action the
+selection (SL) of matching and not-matching tags is either *asserted*,
+*deasserted* or *negated*. The read/write operation is applied to the
+tags that remain asserted after processing the entire filter.
+
+To select one tag or another, use *on&off*, followed by a sequence of *on&nop*.
+For example:
+```python
+[b'E2002047381502180820C296', b'0000000000000000C0002403']
+```
+is equivalent to
+```python
+[{'epc':b'E2002047381502180820C296', 'action':'on&off'}, {'epc':b'0000000000000000C0002403', 'action':'on&nop'}]
+```
+
+Please note that the assertion is a state of the (physical) tag that
+disappears after some time. Therefore, the result of one operation
+may affect another!
+
 #### reader.read(*timeout=500*)
 Performs a synchronous read, and then returns a list of *TagReadData* objects resulting from the search.
 If no tags were found then the list will be empty.
@@ -88,7 +142,16 @@ If no tags were found then the list will be empty.
 For example:
 ```python
 print(reader.read())
+[EPC(b'E2002047381502180820C296'), EPC(b'0000000000000000C0002403')]
+```
+
+To get a list (or a set) of EPC codes you can use the map function:
+```python
+epcs = map(lambda t: t.epc, reader.read())
+print(list(epcs))
 [b'E2002047381502180820C296', b'0000000000000000C0002403']
+print(set(epcs))
+{b'E2002047381502180820C296', b'0000000000000000C0002403'}
 ```
 
 #### reader.write(*epc_code*, *epc_target=None*)
@@ -107,6 +170,22 @@ if reader.write(epc_code=new_epc, epc_target=old_epc):
     print('Rewrited "{}" with "{}"'.format(old_epc, new_epc))
 else:
     print('No tag found')
+```
+
+#### reader.enable_stats(*callback*)
+Provide reader stats during asynchronous tag reads.
+
+The function must be called before `reader.start_reading()`.
+
+For example:
+```python
+def stats_received(stats):
+    print({"temp" : stats.temperature})
+    print({"antenna" : stats.antenna})
+    print({"protocol" : stats.protocol})
+    print({"frequency" : stats.frequency})
+
+reader.enable_stats(stats_received)
 ```
 
 #### reader.start_reading(*callback*, *on_time=250*, *off_time=0*)
@@ -147,8 +226,12 @@ reader.stop_reading()
 Reads bytes from the memory bank of a tag. Returns a *bytearray* or None if no
 tag was found. Upon failure an exception is raised.
 
+The read-plan is not used. Use the *antenna* and *protocol* parameters in the
+Reader constuctor.
+
 For example:
 ```python
+reader = mercury.Reader("tmr:///dev/ttyUSB0", baudrate=9600, protocol="GEN2")
 print(reader.read_tag_mem(1, 0x08, 8))
 bytearray(b'\x00\x00\x00\x16\x12\x00\x00\x61')
 ```
@@ -156,6 +239,9 @@ bytearray(b'\x00\x00\x00\x16\x12\x00\x00\x61')
 #### reader.write_tag_mem(*bank*, *address*, *data*, *epc_target=None*)
 Writes bytes to the memory bank of a tag. Returns *True* upon success, or
 *False* if no tag was found. Upon failure an exception is raised.
+
+The read-plan is not used. Use the *antenna* and *protocol* parameters in the
+Reader constuctor.
 
 For example:
 ```python
@@ -167,7 +253,7 @@ Returns value of a GPIO *pin*, or *None* is the pin is not configured as input (
 
 For example:
 ```python
-print(get_gpio_inputs())
+print(reader.get_gpio_inputs())
 [1]
 print(reader.gpi_get(1))
 True
@@ -178,7 +264,7 @@ Sets value of a GPIO *pin* configured as output (see `get_gpio_outputs`).
 
 For example:
 ```python
-print(get_gpio_outputs())
+print(reader.get_gpio_outputs())
 [1]
 reader.gpo_set(1, False)
 ```
@@ -191,6 +277,16 @@ For example:
 print(reader.get_model())
 M6e Nano
 ```
+
+#### reader.get_software_version()
+Returns the software version of the reader hardware
+For example:
+```python
+print(reader.get_sofware_version())
+01.0B.03.11-20.19.07.12-BL12.12.13.00
+```
+01.0B.03 is the current firmware version
+
 
 #### reader.get_serial()
 Returns a serial number of the reader, the same number printed on the barcode label.
@@ -481,6 +577,8 @@ Represents a read of an RFID tag:
  * *read_count* indicates how many times was the tag read during interrogation
  * *rssi* is the strength of the signal recieved from the tag
  * *frequency* the tag was read with
+ * *timestamp* of the read, in floating-point seconds
+   for [datetime.fromtimestamp](https://docs.python.org/3/library/datetime.html#datetime.datetime.fromtimestamp)
  * *epc_mem_data* contains the EPC bank data bytes
  * *tid_mem_data* contains the TID bank data bytes
  * *user_mem_data* contains the User bank data bytes
@@ -495,19 +593,29 @@ print(tag.read_count)
 2
 print(tag.rssi)
 -65
+print(datetime.fromtimestamp(tag.timestamp))
+2018-07-29 09:17:13.812189
 print(tag.user_mem_data)
 bytearray(b'\x00\x00\x00...')
 ```
 
-The string representation (`repr`) of the tag data is its EPC.
+Please note that the bank data bytes need to be requested via the *bank* parameter
+of the reader.*set_read_plan* function. Data not requested will not be read.
+
+The friendly string representation (`str`) of the tag data is its EPC.
 
 ```python
 print(tag)
 b'E2000087071401930700D206'
 ```
 
-Please note that the bank data bytes need to be requested via the *bank* parameter
-of the reader.*set_read_plan* function. Data not requested will not be read.
+However, to avoid ambiguity, the string representation (`repr`) includes
+a prefix.
+
+```python
+print(repr(tag))
+EPC(b'E2000087071401930700D206')
+```
 
 
 ## Build Instructions
@@ -521,8 +629,8 @@ If you get the "ImportError: DLL load failed", make sure you have the
 installed.
 
 To build an installer for other Python releases you need to:
- * Download the latest [Mercury API](https://www.jadaktech.com/documentation/rfid/mercuryapi), e.g.
-   [mercuryapi-1.31.2.zip](https://www.jadaktech.com/wp-content/uploads/2018/11/mercuryapi-1.31.2.zip).
+ * Download the latest [Mercury API](https://www.jadaktech.com/products/thingmagic-rfid/thingmagic-mercury-api), e.g.
+   [mercuryapi-1.31.1.36-2.zip](https://www.jadaktech.com/wp-content/uploads/2019/10/mercuryapi-1.31.1.36-2.zip).
  * Go to mercuryapi-1.31.2.40\c\src\api\ltkc_win32 and run `gencode.bat`
  * Open mercuryapi-1.31.2.40\c\src\api\ltkc_win32\inc\stdint_win32.h and comment (or delete)
    the block of `typedef` for `int_fast8_t` through `uint_fast64_t` (8 lines)
@@ -553,10 +661,11 @@ install the `python3-dev[evel]` instead of the `python-dev[evel]` packages.
 
 Build the module simply by running
 ```bash
+git clone https://github.com/gotthardp/python-mercuryapi.git
 cd python-mercuryapi
 make
 ```
-This will download and build the [Mercury API SDK](http://www.thingmagic.com/index.php/manuals-firmware)
+This will download and build the [Mercury API SDK](https://www.jadaktech.com/products/thingmagic-rfid/thingmagic-mercury-api)
 and then it will build the Python module itself.
 
 The `make` command will automatically determine which Python version is installed. If both
@@ -572,7 +681,7 @@ sudo make install
 ```
 which is a shortcut to running
 ```bash
-sudo python setup.py install
+sudo python setup.py build install
 ```
 
 If you are getting a "Module not found" error, please double check that you built and
@@ -584,6 +693,14 @@ user to the `dialout` group:
 ```bash
 sudo usermod -a -G dialout $USER
 ```
+
+### MacOS X (Darwin)
+To build on Mac
+ * Copy `mercuryapi_osx.patch` to `mercuryapi.patch` (and overwrite the target)
+ * Run `make`
+
+Or simply do `python setup.py build install`
+
 
 ## Copyright and Licensing
 
