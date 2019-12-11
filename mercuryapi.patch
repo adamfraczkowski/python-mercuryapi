@@ -1,21 +1,10 @@
---- c/src/api/Makefile	2018-10-02 10:53:16.000000000 +0200
-+++ c/src/api/Makefile	2019-05-15 10:35:25.350238534 +0200
-@@ -6,6 +6,9 @@
- else ifeq ($(PLATFORM), BB_LINUX)
- include ../arch/ARM/bb/module.mk
- 
-+else ifeq ($(PLATFORM), MIPS)
-+include ../arch/MIPS/openwrt/module.mk
-+
- else
- STRIP ?= strip
- endif
-@@ -72,7 +75,8 @@
+--- c/src/api/Makefile	2015-10-06 04:39:20.000000000 -0700
++++ c/src/api/Makefile	2016-07-30 02:44:13.854834003 -0700
+@@ -68,7 +68,7 @@
  HEADERS += tmr_utils.h
  
  DBG ?= -g
 -CWARN = -Werror -Wall
-+#CWARN = -Werror -Wall
 +CWARN = -Wall
  # Add -Wextra to chase down warnings that might appear on build server, but not dev machines
  #CWARN += -Wextra

@@ -2,7 +2,18 @@
 # python3 setup.py sdist upload
 from setuptools import setup, Extension
 from distutils.command.build import build
-import os, platform
+import os, platform, sys
+
+if len(sys.argv)==3 and sys.argv[2]=="mips":
+      # PATH DEPENDS ONLY ON YOUR BUILD ENV
+      STAGING_DIR="/source/staging_dir"
+      TOOLCHAIN_DIR=STAGING_DIR+"/toolchain-mipsel_24kc_gcc-7.3.0_musl"
+      CC=TOOLCHAIN_DIR+"/bin/mipsel-openwrt-linux-gcc"
+      STRIP=TOOLCHAIN_DIR+"/bin/mipsel-openwrt-linux-strip"
+      LDSHARED=TOOLCHAIN_DIR+"/bin/mipsel-openwrt-linux-gcc -shared"
+      os.environ['CC'] = CC;
+      os.environ['LDSHARED'] = LDSHARED
+      
 
 class my_build(build):
     def run(self):
@@ -26,6 +37,6 @@ setup(name="python-mercuryapi", version="0.5.3",
       cmdclass={'build': my_build},
       ext_modules=[Extension("mercury",
                              sources=["mercury.c"],
-                             libraries=["mercuryapi"],
+                             libraries=["mercuryapi", "ltkc", "ltkctm"],
                              include_dirs=['build/mercuryapi/include'],
                              library_dirs=['build/mercuryapi/lib'])])

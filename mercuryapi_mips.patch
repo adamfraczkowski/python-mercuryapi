@@ -1,0 +1,14 @@
+--- c/src/api/Makefile    2019-12-10 14:23:54.086615000 +0000
++++ c/src/api/Makefile    2019-12-10 15:31:32.736804500 +0000
+@@ -86,11 +86,6 @@
+ CFLAGS += -fPIC
+
+ ifndef SKIP_SAMPLES
+-ifneq ($(PLATFORM), BB_LINUX)
+-ifneq ($(PLATFORM),EMBEDDED)
+-PROGS += demo
+-endif
+-endif
+ PROGS += filter
+ PROGS += firmwareload
+ PROGS += locktag
