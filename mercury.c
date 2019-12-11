@@ -239,18 +239,6 @@ Reader_dealloc(Reader* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static const char* protocol2str(TMR_TagProtocol protocol)
-{
-    Protocols *prot;
-    for(prot = Reader_protocols; prot->name != NULL; prot++)
-    {
-        if(prot->protocol == protocol)
-            return prot->name;
-    }
-
-    return NULL;
-}
-
 static
 uint8_t as_uint8(PyObject *item)
 {
