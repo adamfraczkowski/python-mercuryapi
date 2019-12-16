@@ -1,10 +1,9 @@
 APIZIP ?= mercuryapi-1.31.1.36-2.zip
 APIVER ?= 1.31.1.36
 PYTHON ?= $(shell { command -v python3 || command -v python; } 2>/dev/null)
-
+ARCH ?= MIPS
+PACKAGE_VERSION ?= 0.0.1
 # If you want to build to other architecture
-ARCH=MIPS
-PACKAGE_VERSION=0.5.3
 MIPS_STAGING ?= /root/source/staging_dir
 PYTHON_HEADER_INCLUDE_PATH ?= $(MIPS_STAGING)/target-mipsel_24kc_musl/usr/include/python3.6
 
