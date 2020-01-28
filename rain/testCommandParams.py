@@ -1,14 +1,15 @@
 import unittest
 from rain import Reader
+import time
 
 class TestCommandParams(unittest.TestCase):
-    reader_uri = 'adres_czytnika'
+    reader = Reader()
+
     def test_class_init(self):
-        self.assertEqual(Reader(self.reader_uri).uri, self.reader_uri, 'Class init')
+        self.assertEqual(Reader().uri, None, 'Class init')
 
     def test_zero_length_command(self):
-        reader = Reader(self.reader_uri)
-        self.assertEqual(reader.command(
+        self.assertEqual(self.reader.command(
             {
                 'Cmd':'',
                 'CmdID':'1234567890'
@@ -22,8 +23,7 @@ class TestCommandParams(unittest.TestCase):
             }, 'Zero length command')
 
     def test_no_command(self):
-        reader = Reader(self.reader_uri)
-        self.assertEqual(reader.command(
+        self.assertEqual(self.reader.command(
             {
                 'CmdID':'1234567890'
             }), 
@@ -36,8 +36,7 @@ class TestCommandParams(unittest.TestCase):
             }, 'No command')
 
     def test_no_cmdid(self):
-        reader = Reader(self.reader_uri)
-        self.assertEqual(reader.command(
+        self.assertEqual(self.reader.command(
             {
                 'Cmd':''
             }), 
@@ -50,8 +49,7 @@ class TestCommandParams(unittest.TestCase):
             }, 'No CmdID')
 
     def test_command_not_supported(self):
-        reader = Reader(self.reader_uri)
-        self.assertEqual(reader.command(
+        self.assertEqual(self.reader.command(
             {
                 'Cmd':'qwe'
             }), 
@@ -64,8 +62,7 @@ class TestCommandParams(unittest.TestCase):
             }, 'Command not supported')
 
     def test_command_supported(self):
-        reader = Reader(self.reader_uri)
-        self.assertEqual(reader.command(
+        self.assertEqual(self.reader.command(
             {
                 'Cmd':'GetInfo',
                 'CmdID':'1234567890'
@@ -74,6 +71,6 @@ class TestCommandParams(unittest.TestCase):
                 'Report':'GetInfo',
                 'CmdID':'1234567890',
                 'ErrID':0,
-                'ErrDesc':'Success',
+                'ErrDesc':'No error(s)',
                 'ErrInfo':''
             }, 'Command supported')
